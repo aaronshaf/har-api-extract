@@ -1,7 +1,8 @@
-import { describe, test, expect } from "bun:test"
+import { describe, test } from "node:test"
+import assert from "node:assert"
 import { Effect } from "effect"
-import { parseHARFile, isJSONRequest, isGraphQLRequest, filterJSONAndGraphQLEntries } from "./parser"
-import type { HAREntry } from "./types"
+import { parseHARFile, isJSONRequest, isGraphQLRequest, filterJSONAndGraphQLEntries } from "./parser.js"
+import type { HAREntry } from "./types.js"
 
 describe("parseHARFile", () => {
   test("parses valid HAR JSON", async () => {
@@ -14,15 +15,15 @@ describe("parseHARFile", () => {
     })
     
     const result = await Effect.runPromise(parseHARFile(harContent))
-    expect(result.log.version).toBe("1.2")
-    expect(result.log.entries).toEqual([])
+    assert.strictEqual(result.log.version, "1.2")
+    assert.deepStrictEqual(result.log.entries, [])
   })
 
   test("handles invalid JSON", async () => {
     const result = await Effect.runPromise(
       Effect.either(parseHARFile("not valid json"))
     )
-    expect(result._tag).toBe("Left")
+    assert.strictEqual(result._tag, "Left")
   })
 })
 
@@ -46,7 +47,7 @@ describe("isJSONRequest", () => {
       time: 100
     } as HAREntry
     
-    expect(isJSONRequest(entry)).toBe(true)
+    assert.strictEqual(isJSONRequest(entry), true)
   })
 
   test("identifies JSON request by postData mimeType", () => {
@@ -70,7 +71,7 @@ describe("isJSONRequest", () => {
       time: 100
     } as HAREntry
     
-    expect(isJSONRequest(entry)).toBe(true)
+    assert.strictEqual(isJSONRequest(entry), true)
   })
 })
 
@@ -101,7 +102,7 @@ describe("isGraphQLRequest", () => {
       time: 100
     } as HAREntry
     
-    expect(isGraphQLRequest(entry)).toBe(true)
+    assert.strictEqual(isGraphQLRequest(entry), true)
   })
 
   test("identifies GraphQL request with query only", () => {
@@ -129,7 +130,7 @@ describe("isGraphQLRequest", () => {
       time: 100
     } as HAREntry
     
-    expect(isGraphQLRequest(entry)).toBe(true)
+    assert.strictEqual(isGraphQLRequest(entry), true)
   })
 
   test("returns false for non-GraphQL JSON request", () => {
@@ -155,6 +156,6 @@ describe("isGraphQLRequest", () => {
       time: 100
     } as HAREntry
     
-    expect(isGraphQLRequest(entry)).toBe(false)
+    assert.strictEqual(isGraphQLRequest(entry), false)
   })
 })

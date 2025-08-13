@@ -1,8 +1,8 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S npx tsx
 import { Effect, pipe } from "effect"
 import { NodeRuntime } from "@effect/platform-node"
-import { readHARFile, readHARFromStdin, filterJSONAndGraphQLEntries } from "./src/parser"
-import { formatEntry, formatForLLM, formatCompact } from "./src/formatter"
+import { readHARFile, readHARFromStdin, filterJSONAndGraphQLEntries } from "./src/parser.js"
+import { formatEntry, formatForLLM, formatCompact } from "./src/formatter.js"
 
 const args = process.argv.slice(2)
 

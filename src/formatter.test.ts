@@ -1,6 +1,7 @@
-import { describe, test, expect } from "bun:test"
-import { formatEntry, formatCompact, formatForLLM } from "./formatter"
-import type { HAREntry } from "./types"
+import { describe, test } from "node:test"
+import assert from "node:assert"
+import { formatEntry, formatCompact, formatForLLM } from "./formatter.js"
+import type { HAREntry } from "./types.js"
 
 describe("formatEntry", () => {
   test("formats basic REST request", () => {
@@ -26,13 +27,13 @@ describe("formatEntry", () => {
     } as HAREntry
     
     const formatted = formatEntry(entry, 0)
-    expect(formatted.index).toBe(1)
-    expect(formatted.method).toBe("GET")
-    expect(formatted.url).toBe("https://api.example.com/users")
-    expect(formatted.status).toBe(200)
-    expect(formatted.duration).toBe(150)
-    expect(formatted.isGraphQL).toBe(false)
-    expect(formatted.responseBody).toEqual({ users: [] })
+    assert.strictEqual(formatted.index, 1)
+    assert.strictEqual(formatted.method, "GET")
+    assert.strictEqual(formatted.url, "https://api.example.com/users")
+    assert.strictEqual(formatted.status, 200)
+    assert.strictEqual(formatted.duration, 150)
+    assert.strictEqual(formatted.isGraphQL, false)
+    assert.deepStrictEqual(formatted.responseBody, { users: [] })
   })
 
   test("formats GraphQL request with operation name", () => {
@@ -65,9 +66,9 @@ describe("formatEntry", () => {
     } as HAREntry
     
     const formatted = formatEntry(entry, 0)
-    expect(formatted.isGraphQL).toBe(true)
-    expect(formatted.operationName).toBe("GetUsers")
-    expect(formatted.requestBody.query).toBe("query GetUsers { users { id name } }")
+    assert.strictEqual(formatted.isGraphQL, true)
+    assert.strictEqual(formatted.operationName, "GetUsers")
+    assert.strictEqual(formatted.requestBody.query, "query GetUsers { users { id name } }")
   })
 })
 
@@ -92,9 +93,9 @@ describe("formatCompact", () => {
     ]
     
     const output = formatCompact(entries)
-    expect(output).toContain("1 total requests (1 GraphQL, 0 REST)")
-    expect(output).toContain("[GraphQL: GetUser]")
-    expect(output).toContain("200 (100ms)")
+    assert(output.includes("1 total requests (1 GraphQL, 0 REST)"))
+    assert(output.includes("[GraphQL: GetUser]"))
+    assert(output.includes("200 (100ms)"))
   })
 })
 
@@ -116,10 +117,10 @@ describe("formatForLLM", () => {
     ]
     
     const output = formatForLLM(entries)
-    expect(output).toContain("# HAR File Analysis - API Requests Summary")
-    expect(output).toContain("Total API Requests: 1")
-    expect(output).toContain("## Request #1 [REST/JSON]")
-    expect(output).toContain("**URL:** GET https://api.example.com/users")
-    expect(output).toContain("**Status:** 200")
+    assert(output.includes("# HAR File Analysis - API Requests Summary"))
+    assert(output.includes("Total API Requests: 1"))
+    assert(output.includes("## Request #1 [REST/JSON]"))
+    assert(output.includes("**URL:** GET https://api.example.com/users"))
+    assert(output.includes("**Status:** 200"))
   })
 })

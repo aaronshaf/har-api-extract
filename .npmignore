@@ -1,9 +1,8 @@
 examples/
-har-binary
-.cursor/
-CLAUDE.md
 .git/
 .gitignore
 tsconfig.json
 *.log
 .DS_Store
+src/*.test.ts
+*.test.ts

@@ -1,7 +1,7 @@
 import { Effect, pipe } from "effect"
 import { Schema } from "@effect/schema"
 import * as fs from "node:fs"
-import { HARFile, HAREntry } from "./types"
+import { HARFile, HAREntry } from "./types.js"
 
 export const parseHARFile = (content: string) =>
   pipe(

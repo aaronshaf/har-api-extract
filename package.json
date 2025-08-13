@@ -1,6 +1,6 @@
 {
   "name": "har-api-extract",
-  "version": "1.0.2",
+  "version": "2.0.0",
   "description": "Extract and format JSON/GraphQL API requests from HAR files for LLM analysis",
   "module": "index.ts",
   "type": "module",
@@ -22,22 +22,19 @@
     "extract"
   ],
   "bin": {
-    "har": "./cli.js",
-    "har-api-extract": "./cli.js"
+    "har": "./har.ts",
+    "har-api-extract": "./har.ts"
   },
   "scripts": {
-    "dev": "bun run src/cli.ts",
-    "build": "bun build src/cli.ts --compile --outfile har",
-    "test": "bun test"
+    "dev": "tsx src/standalone.ts",
+    "test": "node --test src/*.test.ts"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.20",
-    "typescript": "^5.9.2"
-  },
-  "peerDependencies": {
+    "@types/node": "^24.2.1",
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "tsx": "^4.20.4",
     "@effect/cli": "^0.69.0",
     "@effect/platform": "^0.90.2",
     "@effect/platform-node": "^0.95.0",

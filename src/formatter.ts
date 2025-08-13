@@ -1,5 +1,5 @@
 import { Effect, pipe } from "effect"
-import { HAREntry } from "./types"
+import { HAREntry } from "./types.js"
 
 interface FormattedRequest {
   index: number
