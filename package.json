@@ -1,6 +1,6 @@
 {
   "name": "har-api-extract",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "Extract and format JSON/GraphQL API requests from HAR files for LLM analysis",
   "module": "index.ts",
   "type": "module",
