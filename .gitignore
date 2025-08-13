@@ -1,6 +1,13 @@
 # dependencies (bun install)
 node_modules
 
+# Compiled binary
+har-binary
+
+# IDE specific
+.cursor/
+CLAUDE.md
+
 # output
 out
 dist
