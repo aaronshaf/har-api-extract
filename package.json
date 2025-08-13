@@ -26,19 +26,21 @@
     "har-api-extract": "./har.ts"
   },
   "scripts": {
-    "dev": "tsx src/standalone.ts",
-    "test": "node --test src/*.test.ts"
+    "dev": "tsx har.ts",
+    "test": "tsx --test src/*.test.ts",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@types/node": "^24.2.1",
+    "husky": "^9.1.7",
     "typescript": "^5.9.2"
   },
   "dependencies": {
-    "tsx": "^4.20.4",
     "@effect/cli": "^0.69.0",
     "@effect/platform": "^0.90.2",
     "@effect/platform-node": "^0.95.0",
     "@effect/schema": "^0.75.5",
-    "effect": "^3.17.7"
+    "effect": "^3.17.7",
+    "tsx": "^4.20.4"
   }
 }
