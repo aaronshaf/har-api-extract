@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 350px;
+      padding: 15px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    h1 {
+      font-size: 18px;
+      margin: 0 0 15px 0;
+      color: #333;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border: none;
+      border-radius: 5px;
+      background: #4CAF50;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #status {
+      margin: 15px 0;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 13px;
+      display: none;
+    }
+    #status.success {
+      background: #d4edda;
+      color: #155724;
+      display: block;
+    }
+    #status.error {
+      background: #f8d7da;
+      color: #721c24;
+      display: block;
+    }
+    #status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      display: block;
+    }
+    #stats {
+      font-size: 12px;
+      color: #666;
+      margin: 10px 0;
+    }
+    .format-options {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    .format-options label {
+      display: flex;
+      align-items: center;
+      font-size: 13px;
+    }
+    .format-options input {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔴 Record API Requests</h1>
+  
+  <button id="extract">Record API Requests</button>
+  <button id="copy" style="display:none;">Copy to Clipboard</button>
+  
+  <div id="status"></div>
+  <div id="stats"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
