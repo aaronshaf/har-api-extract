@@ -1,0 +1,58 @@
+#!/usr/bin/env bun
+import { Effect, pipe } from "effect"
+import { NodeRuntime } from "@effect/platform-node"
+import { readHARFile, readHARFromStdin, filterJSONAndGraphQLEntries } from "./src/parser"
+import { formatEntry, formatForLLM, formatCompact } from "./src/formatter"
+
+const args = process.argv.slice(2)
+
+const hasHelp = args.includes("--help") || args.includes("-h")
+const hasCompact = args.includes("--compact") || args.includes("-c")
+const hasAll = args.includes("--all") || args.includes("-a")
+
+const fileArg = args.find(arg => !arg.startsWith("-"))
+
+if (hasHelp) {
+  console.log(`
+har - Extract and format JSON/GraphQL requests from HAR files for LLM analysis
+
+Usage:
+  har [file] [options]       Read from file
+  har [options]              Read from stdin (pipe input)
+  
+Options:
+  -c, --compact              Output in compact format
+  -a, --all                  Include all requests, not just JSON/GraphQL
+  -h, --help                 Show this help message
+
+Examples:
+  har network.har            Process a HAR file
+  har network.har -c         Process with compact output
+  cat network.har | har      Process from stdin
+  har network.har | pbcopy   Copy output to clipboard (macOS)
+`)
+  process.exit(0)
+}
+
+const program = pipe(
+  fileArg ? readHARFile(fileArg) : readHARFromStdin(),
+  Effect.map((harFile) => {
+    const entries = hasAll 
+      ? harFile.log.entries 
+      : filterJSONAndGraphQLEntries(harFile.log.entries)
+    
+    if (entries.length === 0) {
+      return "No JSON or GraphQL requests found in the HAR file."
+    }
+    
+    const formatted = entries.map((entry, index) => formatEntry(entry, index))
+    return hasCompact ? formatCompact(formatted) : formatForLLM(formatted)
+  }),
+  Effect.tap((output) => Effect.sync(() => console.log(output))),
+  Effect.catchAll((error) => Effect.sync(() => {
+    console.error(`Error: ${JSON.stringify(error, null, 2)}`)
+    process.exit(1)
+  }))
+)
+
+NodeRuntime.runMain(program)
