@@ -71,11 +71,11 @@ cat network.har | ./har
 
 ## How to Export HAR Files
 
-1. Open Chrome/Edge/Firefox DevTools (F12)
+1. Open Chrome DevTools (F12 or Cmd+Option+I)
 2. Go to Network tab
 3. Perform the actions you want to capture
-4. Right-click in the network panel
-5. Select "Save all as HAR with content"
+4. Click the download arrow (⬇) in the Network panel toolbar
+5. Save as HAR file
 
 ## Output Format
 

@@ -27,9 +27,10 @@ Options:
 
 How to Export HAR:
   1. Open Chrome DevTools (F12)
-  2. Go to Network tab
+  2. Go to Network tab  
   3. Do your actions
-  4. Right-click → "Save all as HAR with content"
+  4. Click download arrow (⬇) in toolbar
+  5. Save as HAR file
 
 Examples:
   har network.har            Process a HAR file
