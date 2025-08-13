@@ -1,40 +1,50 @@
 #!/usr/bin/env node
 
 // Entry point for npm/npx compatibility
-// Spawn tsx as a child process to run the TypeScript file
-import { spawn } from 'child_process';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { existsSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const tsxPath = join(__dirname, 'node_modules', '.bin', 'tsx');
 const harPath = join(__dirname, 'har.ts');
 const args = process.argv.slice(2);
 
-const child = spawn(tsxPath, [harPath, ...args], {
-  stdio: 'inherit',
-  shell: false
-});
+// Try different locations for tsx
+const possibleTsxPaths = [
+  join(__dirname, 'node_modules', '.bin', 'tsx'),
+  join(__dirname, '..', '.bin', 'tsx'),  // When installed as dependency
+  'tsx'  // Global or in PATH
+];
 
-child.on('error', (error) => {
-  // If tsx not found in local node_modules, try global
-  const globalChild = spawn('tsx', [harPath, ...args], {
-    stdio: 'inherit',
-    shell: true
-  });
-  
-  globalChild.on('error', (err) => {
-    console.error('Error: tsx is required. Please ensure har-api-extract is properly installed.');
-    process.exit(1);
-  });
-  
-  globalChild.on('exit', (code) => {
-    process.exit(code || 0);
-  });
-});
+let tsxPath = null;
+for (const path of possibleTsxPaths) {
+  try {
+    if (path === 'tsx') {
+      // Try to run tsx --version to check if it's available
+      execFileSync('tsx', ['--version'], { stdio: 'ignore' });
+      tsxPath = 'tsx';
+      break;
+    } else if (existsSync(path)) {
+      tsxPath = path;
+      break;
+    }
+  } catch (e) {
+    // Continue to next path
+  }
+}
 
-child.on('exit', (code) => {
-  process.exit(code || 0);
-});
+if (!tsxPath) {
+  console.error('Error: Could not find tsx. This is likely an installation issue.');
+  console.error('Try reinstalling: npm install -g har-api-extract');
+  process.exit(1);
+}
+
+try {
+  execFileSync(tsxPath, [harPath, ...args], { stdio: 'inherit' });
+} catch (error) {
+  // Error already printed to stderr via stdio: 'inherit'
+  process.exit(error.status || 1);
+}

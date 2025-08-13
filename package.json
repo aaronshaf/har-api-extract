@@ -22,7 +22,6 @@
     "extract"
   ],
   "bin": {
-    "har": "./cli.js",
     "har-api-extract": "./cli.js"
   },
   "scripts": {
