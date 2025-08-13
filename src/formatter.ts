@@ -46,60 +46,50 @@ export const formatEntry = (entry: HAREntry, index: number): FormattedRequest =>
 export const formatForLLM = (entries: FormattedRequest[]): string => {
   const sections: string[] = []
   
-  sections.push("# HAR File Analysis - API Requests Summary")
-  sections.push(`Total API Requests: ${entries.length}`)
-  sections.push(`GraphQL Requests: ${entries.filter(e => e.isGraphQL).length}`)
-  sections.push(`REST/JSON Requests: ${entries.filter(e => !e.isGraphQL).length}`)
-  sections.push("\n" + "=".repeat(80) + "\n")
+  sections.push(`<api_requests total="${entries.length}" graphql="${entries.filter(e => e.isGraphQL).length}" rest="${entries.filter(e => !e.isGraphQL).length}">`)
   
   entries.forEach(entry => {
-    const lines: string[] = []
-    
-    lines.push(`## Request #${entry.index} ${entry.isGraphQL ? "[GraphQL]" : "[REST/JSON]"}`)
-    lines.push(`**URL:** ${entry.method} ${entry.url}`)
-    lines.push(`**Status:** ${entry.status}`)
-    lines.push(`**Duration:** ${entry.duration}ms`)
-    lines.push(`**Timestamp:** ${entry.timestamp}`)
+    const type = entry.isGraphQL ? 'graphql' : 'rest'
+    sections.push(`\n<request index="${entry.index}" type="${type}">`)
+    sections.push(`  <url method="${entry.method}">${entry.url}</url>`)
+    sections.push(`  <status code="${entry.status}" duration="${entry.duration}ms"/>`)
     
     if (entry.isGraphQL && entry.operationName) {
-      lines.push(`**Operation:** ${entry.operationName}`)
+      sections.push(`  <operation>${entry.operationName}</operation>`)
     }
     
     // Display GraphQL query separately if available
     if (entry.isGraphQL && entry.requestBody?.query) {
-      lines.push("\n### GraphQL Query:")
-      lines.push("```graphql")
-      lines.push(entry.requestBody.query)
-      lines.push("```")
+      sections.push(`  <graphql_query>`)
+      sections.push(entry.requestBody.query)
+      sections.push(`  </graphql_query>`)
       
       if (entry.requestBody.variables && Object.keys(entry.requestBody.variables).length > 0) {
-        lines.push("\n### Variables:")
-        lines.push("```json")
-        lines.push(JSON.stringify(entry.requestBody.variables, null, 2))
-        lines.push("```")
+        sections.push(`  <variables>`)
+        sections.push(JSON.stringify(entry.requestBody.variables, null, 2))
+        sections.push(`  </variables>`)
       }
     } else if (entry.requestBody) {
-      lines.push("\n### Request Body:")
-      lines.push("```json")
-      lines.push(JSON.stringify(entry.requestBody, null, 2))
-      lines.push("```")
+      sections.push(`  <request_body>`)
+      sections.push(JSON.stringify(entry.requestBody, null, 2))
+      sections.push(`  </request_body>`)
     }
     
     if (entry.responseBody) {
-      lines.push("\n### Response Body:")
-      lines.push("```json")
+      sections.push(`  <response>`)
       const responseStr = JSON.stringify(entry.responseBody, null, 2)
       if (responseStr.length > 1000) {
-        lines.push(responseStr.substring(0, 1000) + "\n... [truncated]")
+        sections.push(responseStr.substring(0, 1000) + "\n... [truncated]")
       } else {
-        lines.push(responseStr)
+        sections.push(responseStr)
       }
-      lines.push("```")
+      sections.push(`  </response>`)
     }
     
-    sections.push(lines.join("\n"))
-    sections.push("\n" + "-".repeat(80) + "\n")
+    sections.push(`</request>`)
   })
+  
+  sections.push(`\n</api_requests>`)
   
   return sections.join("\n")
 }

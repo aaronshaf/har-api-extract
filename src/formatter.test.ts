@@ -117,10 +117,9 @@ describe("formatForLLM", () => {
     ]
     
     const output = formatForLLM(entries)
-    assert(output.includes("# HAR File Analysis - API Requests Summary"))
-    assert(output.includes("Total API Requests: 1"))
-    assert(output.includes("## Request #1 [REST/JSON]"))
-    assert(output.includes("**URL:** GET https://api.example.com/users"))
-    assert(output.includes("**Status:** 200"))
+    assert(output.includes('<api_requests total="1"'))
+    assert(output.includes('<request index="1" type="rest">'))
+    assert(output.includes('<url method="GET">https://api.example.com/users</url>'))
+    assert(output.includes('<status code="200"'))
   })
 })
