@@ -8,28 +8,20 @@ A CLI tool to extract and format JSON/GraphQL API requests from HAR files for LL
 - Format output optimized for LLM analysis
 - Compact mode for quick overview
 - Read from file or stdin
-- Built with Bun, TypeScript, and Effect
+- Built with TypeScript and Effect
 
 ## Installation
 
 ### Quick Usage (no install)
 
 ```bash
-# Using npx
 npx har-api-extract network.har
-
-# Using bunx (faster)
-bunx har-api-extract network.har
 ```
 
 ### Global Install
 
 ```bash
-# Using npm
 npm install -g har-api-extract
-
-# Using bun
-bun install -g har-api-extract
 
 # Then use directly
 har network.har
@@ -40,8 +32,7 @@ har network.har
 ```bash
 git clone https://github.com/aaronshaf/har-api-extract.git
 cd har-api-extract
-bun install
-chmod +x har
+npm install
 ```
 
 ## Usage
