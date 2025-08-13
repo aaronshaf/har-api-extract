@@ -25,6 +25,12 @@ Options:
   -a, --all                  Include all requests, not just JSON/GraphQL
   -h, --help                 Show this help message
 
+How to Export HAR:
+  1. Open Chrome DevTools (F12)
+  2. Go to Network tab
+  3. Do your actions
+  4. Right-click → "Save all as HAR with content"
+
 Examples:
   har network.har            Process a HAR file
   har network.har -c         Process with compact output
@@ -49,8 +55,8 @@ const program = pipe(
     return hasCompact ? formatCompact(formatted) : formatForLLM(formatted)
   }),
   Effect.tap((output) => Effect.sync(() => console.log(output))),
-  Effect.catchAll((error) => Effect.sync(() => {
-    console.error(`Error: ${JSON.stringify(error, null, 2)}`)
+  Effect.catchAll((error: any) => Effect.sync(() => {
+    console.error(`❌ ${error.message || JSON.stringify(error, null, 2)}`)
     process.exit(1)
   }))
 )

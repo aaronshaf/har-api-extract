@@ -65,7 +65,20 @@ export const formatForLLM = (entries: FormattedRequest[]): string => {
       lines.push(`**Operation:** ${entry.operationName}`)
     }
     
-    if (entry.requestBody) {
+    // Display GraphQL query separately if available
+    if (entry.isGraphQL && entry.requestBody?.query) {
+      lines.push("\n### GraphQL Query:")
+      lines.push("```graphql")
+      lines.push(entry.requestBody.query)
+      lines.push("```")
+      
+      if (entry.requestBody.variables && Object.keys(entry.requestBody.variables).length > 0) {
+        lines.push("\n### Variables:")
+        lines.push("```json")
+        lines.push(JSON.stringify(entry.requestBody.variables, null, 2))
+        lines.push("```")
+      }
+    } else if (entry.requestBody) {
       lines.push("\n### Request Body:")
       lines.push("```json")
       lines.push(JSON.stringify(entry.requestBody, null, 2))
@@ -102,7 +115,12 @@ export const formatCompact = (entries: FormattedRequest[]): string => {
     sections.push(`${prefix} ${entry.method} ${entry.url} -> ${entry.status} (${entry.duration}ms)`)
     
     if (entry.requestBody?.query) {
-      sections.push(`  Query: ${entry.requestBody.query.substring(0, 100)}...`)
+      // Extract first meaningful part of query (skip "query OperationName")
+      const queryBody = entry.requestBody.query
+        .replace(/^(query|mutation|subscription)\s+\w+\s*(\([^)]*\))?\s*{/, '{')
+        .trim()
+        .substring(0, 80)
+      sections.push(`  Query: ${queryBody}...`)
     }
     
     if (entry.responseBody?.data) {

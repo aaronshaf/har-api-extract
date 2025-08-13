@@ -9,7 +9,7 @@ export const parseHARFile = (content: string) =>
       try: () => JSON.parse(content),
       catch: (error) => ({
         _tag: "ParseError" as const,
-        message: `Failed to parse JSON: ${error}`
+        message: `Invalid JSON format. Please ensure the file is a valid HAR file exported from browser DevTools.`
       })
     }),
     Effect.flatMap((json) => 
@@ -17,7 +17,7 @@ export const parseHARFile = (content: string) =>
         Schema.decodeUnknown(HARFile)(json),
         Effect.mapError((error) => ({
           _tag: "ParseError" as const,
-          message: `Invalid HAR format: ${error}`
+          message: `Invalid HAR file structure. The file appears to be JSON but doesn't match the HAR (HTTP Archive) format. Please export a HAR file from your browser's Network tab.`
         }))
       )
     )
@@ -26,10 +26,17 @@ export const parseHARFile = (content: string) =>
 export const readHARFile = (filePath: string) =>
   pipe(
     Effect.try({
-      try: () => fs.readFileSync(filePath, "utf-8"),
-      catch: (error) => ({
+      try: () => {
+        if (!fs.existsSync(filePath)) {
+          throw new Error(`File not found: ${filePath}`)
+        }
+        return fs.readFileSync(filePath, "utf-8")
+      },
+      catch: (error: any) => ({
         _tag: "ReadError" as const,
-        message: `Failed to read file: ${error}`
+        message: error.message.includes("File not found") 
+          ? `File not found: ${filePath}\n\nPlease check the file path and try again.`
+          : `Unable to read file: ${filePath}\n\nError: ${error.message}`
       })
     }),
     Effect.flatMap(parseHARFile)
