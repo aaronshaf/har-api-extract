@@ -1,6 +1,6 @@
 {
   "name": "har-api-extract",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Extract and format JSON/GraphQL API requests from HAR files for LLM analysis",
   "module": "index.ts",
   "type": "module",
@@ -22,7 +22,8 @@
     "extract"
   ],
   "bin": {
-    "har": "./har"
+    "har": "./cli.js",
+    "har-api-extract": "./cli.js"
   },
   "scripts": {
     "dev": "bun run src/cli.ts",
