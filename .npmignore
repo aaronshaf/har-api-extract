@@ -6,3 +6,9 @@ tsconfig.json
 .DS_Store
 src/*.test.ts
 *.test.ts
+har-binary
+har-exe
+har-standalone
+test-npx.sh
+*.tgz
+.husky/

@@ -1,4 +1,3 @@
-#!/usr/bin/env -S npx tsx
 import { Effect, pipe } from "effect"
 import { NodeRuntime } from "@effect/platform-node"
 import { readHARFile, readHARFromStdin, filterJSONAndGraphQLEntries } from "./src/parser.js"
