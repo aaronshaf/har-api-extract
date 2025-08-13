@@ -1,6 +1,6 @@
 import { describe, test } from "node:test"
 import assert from "node:assert"
-import { formatEntry, formatCompact, formatForLLM } from "./formatter.js"
+import { formatEntry, formatForLLM } from "./formatter.js"
 import type { HAREntry } from "./types.js"
 
 describe("formatEntry", () => {
@@ -70,34 +70,120 @@ describe("formatEntry", () => {
     assert.strictEqual(formatted.operationName, "GetUsers")
     assert.strictEqual(formatted.requestBody.query, "query GetUsers { users { id name } }")
   })
-})
 
-describe("formatCompact", () => {
-  test("generates compact output", () => {
-    const entries = [
-      {
-        index: 1,
-        timestamp: "2024-01-01T00:00:00Z",
-        duration: 100,
+  test("handles malformed JSON in request body", () => {
+    const entry: HAREntry = {
+      request: {
         method: "POST",
-        url: "https://api.example.com/graphql",
-        status: 200,
-        requestBody: {
-          operationName: "GetUser",
-          query: "query GetUser { user { id } }"
-        },
-        responseBody: { data: { user: { id: "1" } } },
-        isGraphQL: true,
-        operationName: "GetUser"
-      }
-    ]
+        url: "https://api.example.com/data",
+        headers: [],
+        postData: {
+          mimeType: "application/json",
+          text: "invalid json"
+        }
+      },
+      response: {
+        status: 400,
+        statusText: "Bad Request",
+        headers: [],
+        content: {
+          size: 20,
+          mimeType: "application/json",
+          text: '{"error": "Invalid JSON"}'
+        }
+      },
+      startedDateTime: "2024-01-01T00:00:00Z",
+      time: 50
+    } as HAREntry
     
-    const output = formatCompact(entries)
-    assert(output.includes("1 total requests (1 GraphQL, 0 REST)"))
-    assert(output.includes("[GraphQL: GetUser]"))
-    assert(output.includes("200 (100ms)"))
+    const formatted = formatEntry(entry, 2)
+    assert.strictEqual(formatted.index, 3)
+    assert.strictEqual(formatted.requestBody, "invalid json")
+    assert.strictEqual(formatted.isGraphQL, false)
+    assert.deepStrictEqual(formatted.responseBody, { error: "Invalid JSON" })
+  })
+
+  test("handles malformed JSON in response body", () => {
+    const entry: HAREntry = {
+      request: {
+        method: "GET",
+        url: "https://api.example.com/broken",
+        headers: []
+      },
+      response: {
+        status: 500,
+        statusText: "Internal Server Error",
+        headers: [],
+        content: {
+          size: 50,
+          mimeType: "application/json",
+          text: "broken response"
+        }
+      },
+      startedDateTime: "2024-01-01T00:00:00Z",
+      time: 1000
+    } as HAREntry
+    
+    const formatted = formatEntry(entry, 5)
+    assert.strictEqual(formatted.index, 6)
+    assert.strictEqual(formatted.requestBody, undefined)
+    assert.strictEqual(formatted.responseBody, "broken response")
+    assert.strictEqual(formatted.duration, 1000)
+  })
+
+  test("handles entry without postData", () => {
+    const entry: HAREntry = {
+      request: {
+        method: "GET",
+        url: "https://api.example.com/users",
+        headers: []
+      },
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: [],
+        content: {
+          size: 100,
+          mimeType: "application/json",
+          text: JSON.stringify({ users: [] })
+        }
+      },
+      startedDateTime: "2024-01-01T00:00:00Z",
+      time: 150
+    } as HAREntry
+    
+    const formatted = formatEntry(entry, 0)
+    assert.strictEqual(formatted.requestBody, undefined)
+    assert.strictEqual(formatted.isGraphQL, false)
+    assert.strictEqual(formatted.operationName, undefined)
+  })
+
+  test("handles fractional time values", () => {
+    const entry: HAREntry = {
+      request: {
+        method: "GET",
+        url: "https://api.example.com/fast",
+        headers: []
+      },
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: [],
+        content: {
+          size: 10,
+          mimeType: "application/json",
+          text: '{"ok": true}'
+        }
+      },
+      startedDateTime: "2024-01-01T00:00:00Z",
+      time: 123.456
+    } as HAREntry
+    
+    const formatted = formatEntry(entry, 0)
+    assert.strictEqual(formatted.duration, 123)
   })
 })
+
 
 describe("formatForLLM", () => {
   test("generates detailed LLM-optimized output", () => {
@@ -121,5 +207,113 @@ describe("formatForLLM", () => {
     assert(output.includes('<request index="1" type="rest">'))
     assert(output.includes('<url method="GET">https://api.example.com/users</url>'))
     assert(output.includes('<status code="200"'))
+  })
+
+  test("formats GraphQL request with variables", () => {
+    const entries = [
+      {
+        index: 1,
+        timestamp: "2024-01-01T00:00:00Z",
+        duration: 150,
+        method: "POST",
+        url: "https://api.example.com/graphql",
+        status: 200,
+        requestBody: {
+          operationName: "GetUserById",
+          query: "query GetUserById($id: ID!) { user(id: $id) { id name } }",
+          variables: { id: "123" }
+        },
+        responseBody: { data: { user: { id: "123", name: "John" } } },
+        isGraphQL: true,
+        operationName: "GetUserById"
+      }
+    ]
+    
+    const output = formatForLLM(entries)
+    assert(output.includes('<request index="1" type="graphql">'))
+    assert(output.includes('<operation>GetUserById</operation>'))
+    assert(output.includes('<graphql_query>'))
+    assert(output.includes('<variables>'))
+    assert(output.includes('"id": "123"'))
+  })
+
+  test("truncates large response bodies", () => {
+    const largeResponse = { data: "x".repeat(2000) }
+    const entries = [
+      {
+        index: 1,
+        timestamp: "2024-01-01T00:00:00Z",
+        duration: 100,
+        method: "GET",
+        url: "https://api.example.com/large",
+        status: 200,
+        requestBody: undefined,
+        responseBody: largeResponse,
+        isGraphQL: false,
+        operationName: undefined
+      }
+    ]
+    
+    const output = formatForLLM(entries)
+    assert(output.includes("... [truncated]"))
+  })
+
+  test("handles empty request/response bodies", () => {
+    const entries = [
+      {
+        index: 1,
+        timestamp: "2024-01-01T00:00:00Z",
+        duration: 100,
+        method: "DELETE",
+        url: "https://api.example.com/users/123",
+        status: 204,
+        requestBody: undefined,
+        responseBody: undefined,
+        isGraphQL: false,
+        operationName: undefined
+      }
+    ]
+    
+    const output = formatForLLM(entries)
+    assert(output.includes('<request index="1" type="rest">'))
+    assert(output.includes('<status code="204"'))
+    assert(!output.includes('<request_body>'))
+    assert(!output.includes('<response>'))
+  })
+
+  test("handles mixed GraphQL and REST requests", () => {
+    const entries = [
+      {
+        index: 1,
+        timestamp: "2024-01-01T00:00:00Z",
+        duration: 100,
+        method: "GET",
+        url: "https://api.example.com/users",
+        status: 200,
+        requestBody: undefined,
+        responseBody: { users: [] },
+        isGraphQL: false,
+        operationName: undefined
+      },
+      {
+        index: 2,
+        timestamp: "2024-01-01T00:00:01Z",
+        duration: 150,
+        method: "POST",
+        url: "https://api.example.com/graphql",
+        status: 200,
+        requestBody: {
+          query: "{ user { id } }"
+        },
+        responseBody: { data: { user: { id: "1" } } },
+        isGraphQL: true,
+        operationName: undefined
+      }
+    ]
+    
+    const output = formatForLLM(entries)
+    assert(output.includes('total="2" graphql="1" rest="1"'))
+    assert(output.includes('<request index="1" type="rest">'))
+    assert(output.includes('<request index="2" type="graphql">'))
   })
 })

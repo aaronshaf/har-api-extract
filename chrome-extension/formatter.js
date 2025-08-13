@@ -111,35 +111,3 @@ function formatForLLM(entries) {
   return sections.join('\n');
 }
 
-function formatCompact(entries) {
-  const formatted = entries.map((entry, index) => formatEntry(entry, index));
-  const sections = [];
-  
-  sections.push("# API Requests Overview");
-  sections.push(`${formatted.length} total requests (${formatted.filter(e => e.isGraphQL).length} GraphQL, ${formatted.filter(e => !e.isGraphQL).length} REST)\n`);
-  
-  formatted.forEach(entry => {
-    const prefix = entry.isGraphQL ? `[GraphQL: ${entry.operationName || 'unknown'}]` : "[REST]";
-    sections.push(`${prefix} ${entry.method} ${entry.url} -> ${entry.status} (${entry.duration}ms)`);
-    
-    if (entry.requestBody?.query) {
-      const queryBody = entry.requestBody.query
-        .replace(/^(query|mutation|subscription)\s+\w+\s*(\([^)]*\))?\s*{/, '{')
-        .trim()
-        .substring(0, 80);
-      sections.push(`  Query: ${queryBody}...`);
-    }
-    
-    if (entry.responseBody?.data) {
-      const keys = Object.keys(entry.responseBody.data);
-      sections.push(`  Response keys: ${keys.join(", ")}`);
-    } else if (entry.responseBody) {
-      const preview = JSON.stringify(entry.responseBody).substring(0, 100);
-      sections.push(`  Response: ${preview}...`);
-    }
-    
-    sections.push("");
-  });
-  
-  return sections.join('\n');
-}

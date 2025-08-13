@@ -1,12 +1,11 @@
 import { Effect, pipe } from "effect"
 import { NodeRuntime } from "@effect/platform-node"
 import { readHARFile, readHARFromStdin, filterJSONAndGraphQLEntries } from "./src/parser.js"
-import { formatEntry, formatForLLM, formatCompact } from "./src/formatter.js"
+import { formatEntry, formatForLLM } from "./src/formatter.js"
 
 const args = process.argv.slice(2)
 
 const hasHelp = args.includes("--help") || args.includes("-h")
-const hasCompact = args.includes("--compact") || args.includes("-c")
 const hasAll = args.includes("--all") || args.includes("-a")
 
 const fileArg = args.find(arg => !arg.startsWith("-"))
@@ -20,7 +19,6 @@ Usage:
   har [options]              Read from stdin (pipe input)
   
 Options:
-  -c, --compact              Output in compact format
   -a, --all                  Include all requests, not just JSON/GraphQL
   -h, --help                 Show this help message
 
@@ -33,7 +31,6 @@ How to Export HAR:
 
 Examples:
   har network.har            Process a HAR file
-  har network.har -c         Process with compact output
   cat network.har | har      Process from stdin
   har network.har | pbcopy   Copy output to clipboard (macOS)
 `)
@@ -52,7 +49,7 @@ const program = pipe(
     }
     
     const formatted = entries.map((entry, index) => formatEntry(entry, index))
-    return hasCompact ? formatCompact(formatted) : formatForLLM(formatted)
+    return formatForLLM(formatted)
   }),
   Effect.tap((output) => Effect.sync(() => console.log(output))),
   Effect.catchAll((error: any) => Effect.sync(() => {
