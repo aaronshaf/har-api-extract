@@ -24,7 +24,7 @@ npx har-api-extract network.har
 npm install -g har-api-extract
 
 # Then use directly
-har network.har
+har-api-extract network.har
 ```
 
 ### From Source
@@ -39,19 +39,19 @@ npm install
 
 ```bash
 # Process a HAR file
-./har network.har
+har-api-extract network.har
 
 # Compact output
-./har network.har --compact
+har-api-extract network.har --compact
 
 # Read from stdin
-cat network.har | ./har
+cat network.har | har-api-extract
 
 # Pipe to clipboard (macOS)
-./har network.har | pbcopy
+har-api-extract network.har | pbcopy
 
 # Include all requests (not just JSON/GraphQL)
-./har network.har --all
+har-api-extract network.har --all
 ```
 
 ## Options
@@ -88,7 +88,7 @@ Shows a quick overview with:
 
 ```bash
 # Extract GraphQL requests from Apollo Studio
-./har examples/studio.apollographql.com.har --compact
+har-api-extract examples/studio.apollographql.com.har --compact
 
 # Output:
 # API Requests Overview
