@@ -78,6 +78,40 @@ describe("parseHARFile", () => {
 })
 
 describe("isJSONRequest", () => {
+  test("handles various JSON content-type formats", () => {
+    const variations = [
+      "application/json",
+      "application/json; charset=utf-8",
+      "application/json;charset=UTF-8",
+      "application/json; boundary=something",
+      "application/vnd.api+json",
+      "application/ld+json"
+    ]
+    
+    variations.forEach(contentType => {
+      const entry: HAREntry = {
+        request: {
+          method: "POST",
+          url: "https://api.example.com",
+          headers: [
+            { name: "content-type", value: contentType }
+          ]
+        },
+        response: {
+          status: 200,
+          statusText: "OK",
+          headers: [],
+          content: { size: 0, mimeType: "text/html" }
+        },
+        startedDateTime: "2024-01-01T00:00:00Z",
+        time: 100
+      } as HAREntry
+      
+      const isJson = contentType.includes("json")
+      assert.strictEqual(isJSONRequest(entry), isJson, `Failed for content-type: ${contentType}`)
+    })
+  })
+
   test("identifies JSON request by content-type header", () => {
     const entry: HAREntry = {
       request: {

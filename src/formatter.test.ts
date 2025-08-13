@@ -281,6 +281,168 @@ describe("formatForLLM", () => {
     assert(!output.includes('<response>'))
   })
 
+  test("handles GraphQL mutation", () => {
+    const entries = [
+      {
+        index: 1,
+        timestamp: "2024-01-01T00:00:00Z",
+        duration: 200,
+        method: "POST",
+        url: "https://api.example.com/graphql",
+        status: 200,
+        requestBody: {
+          operationName: "CreateUser",
+          query: "mutation CreateUser($input: UserInput!) { createUser(input: $input) { id name } }",
+          variables: { input: { name: "John", email: "john@example.com" } }
+        },
+        responseBody: { data: { createUser: { id: "123", name: "John" } } },
+        isGraphQL: true,
+        operationName: "CreateUser"
+      }
+    ]
+    
+    const output = formatForLLM(entries)
+    assert(output.includes('<operation>CreateUser</operation>'))
+    assert(output.includes('mutation CreateUser'))
+    assert(output.includes('"email": "john@example.com"'))
+  })
+
+  test("handles GraphQL subscription", () => {
+    const entries = [
+      {
+        index: 1,
+        timestamp: "2024-01-01T00:00:00Z",
+        duration: 50,
+        method: "POST",
+        url: "https://api.example.com/graphql",
+        status: 200,
+        requestBody: {
+          operationName: "OnMessageAdded",
+          query: "subscription OnMessageAdded { messageAdded { id text } }",
+          variables: {}
+        },
+        responseBody: { data: { messageAdded: { id: "1", text: "Hello" } } },
+        isGraphQL: true,
+        operationName: "OnMessageAdded"
+      }
+    ]
+    
+    const output = formatForLLM(entries)
+    assert(output.includes('subscription OnMessageAdded'))
+  })
+
+  test("handles GraphQL errors in response", () => {
+    const entries = [
+      {
+        index: 1,
+        timestamp: "2024-01-01T00:00:00Z",
+        duration: 100,
+        method: "POST",
+        url: "https://api.example.com/graphql",
+        status: 200,
+        requestBody: {
+          query: "{ user { id } }"
+        },
+        responseBody: {
+          errors: [
+            {
+              message: "User not found",
+              extensions: { code: "USER_NOT_FOUND" }
+            }
+          ]
+        },
+        isGraphQL: true,
+        operationName: undefined
+      }
+    ]
+    
+    const output = formatForLLM(entries)
+    assert(output.includes('USER_NOT_FOUND'))
+    assert(output.includes('User not found'))
+  })
+
+  test("handles special characters in request/response", () => {
+    const entries = [
+      {
+        index: 1,
+        timestamp: "2024-01-01T00:00:00Z",
+        duration: 100,
+        method: "POST",
+        url: "https://api.example.com/data",
+        status: 200,
+        requestBody: {
+          text: "<script>alert('XSS')</script>",
+          emoji: "🎉🔥💯",
+          unicode: "Hello 世界"
+        },
+        responseBody: {
+          html: "<div class=\"test\">Content & more</div>",
+          special: "Line1\nLine2\tTabbed"
+        },
+        isGraphQL: false,
+        operationName: undefined
+      }
+    ]
+    
+    const output = formatForLLM(entries)
+    assert(output.includes("<script>alert('XSS')</script>"))
+    assert(output.includes("🎉🔥💯"))
+    assert(output.includes("Hello 世界"))
+  })
+
+  test("handles very long URLs", () => {
+    const longPath = "a".repeat(500)
+    const entries = [
+      {
+        index: 1,
+        timestamp: "2024-01-01T00:00:00Z",
+        duration: 100,
+        method: "GET",
+        url: `https://api.example.com/${longPath}`,
+        status: 200,
+        requestBody: undefined,
+        responseBody: { ok: true },
+        isGraphQL: false,
+        operationName: undefined
+      }
+    ]
+    
+    const output = formatForLLM(entries)
+    assert(output.includes(longPath))
+  })
+
+  test("handles null values in JSON", () => {
+    const entries = [
+      {
+        index: 1,
+        timestamp: "2024-01-01T00:00:00Z",
+        duration: 100,
+        method: "POST",
+        url: "https://api.example.com/data",
+        status: 200,
+        requestBody: {
+          name: null,
+          age: 30,
+          address: {
+            street: null,
+            city: "New York"
+          }
+        },
+        responseBody: {
+          success: true,
+          data: null,
+          errors: null
+        },
+        isGraphQL: false,
+        operationName: undefined
+      }
+    ]
+    
+    const output = formatForLLM(entries)
+    assert(output.includes('"name": null'))
+    assert(output.includes('"data": null'))
+  })
+
   test("handles mixed GraphQL and REST requests", () => {
     const entries = [
       {

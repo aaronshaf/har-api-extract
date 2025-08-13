@@ -1,16 +1,17 @@
 import { Schema } from "@effect/schema"
 
-export const HARHeader = Schema.Struct({
+// Internal schemas used for building the main types
+const HARHeader = Schema.Struct({
   name: Schema.String,
   value: Schema.String
 })
 
-export const HARPostData = Schema.Struct({
+const HARPostData = Schema.Struct({
   mimeType: Schema.String,
   text: Schema.String
 })
 
-export const HARRequest = Schema.Struct({
+const HARRequest = Schema.Struct({
   method: Schema.String,
   url: Schema.String,
   httpVersion: Schema.optional(Schema.String),
@@ -22,14 +23,14 @@ export const HARRequest = Schema.Struct({
   postData: Schema.optional(HARPostData)
 })
 
-export const HARContent = Schema.Struct({
+const HARContent = Schema.Struct({
   size: Schema.Number,
   mimeType: Schema.String,
   text: Schema.optional(Schema.String),
   encoding: Schema.optional(Schema.String)
 })
 
-export const HARResponse = Schema.Struct({
+const HARResponse = Schema.Struct({
   status: Schema.Number,
   statusText: Schema.String,
   httpVersion: Schema.optional(Schema.String),
@@ -41,6 +42,7 @@ export const HARResponse = Schema.Struct({
   bodySize: Schema.optional(Schema.Number)
 })
 
+// HAREntry needs to be exported as it's used in HARLog
 export const HAREntry = Schema.Struct({
   _connectionId: Schema.optional(Schema.String),
   _initiator: Schema.optional(Schema.Unknown),
@@ -57,7 +59,7 @@ export const HAREntry = Schema.Struct({
   timings: Schema.optional(Schema.Unknown)
 })
 
-export const HARLog = Schema.Struct({
+const HARLog = Schema.Struct({
   version: Schema.String,
   creator: Schema.Struct({
     name: Schema.String,
@@ -71,7 +73,6 @@ export const HARFile = Schema.Struct({
   log: HARLog
 })
 
+// Only export the types that are actually used
 export type HARFile = Schema.Schema.Type<typeof HARFile>
 export type HAREntry = Schema.Schema.Type<typeof HAREntry>
-export type HARRequest = Schema.Schema.Type<typeof HARRequest>
-export type HARResponse = Schema.Schema.Type<typeof HARResponse>

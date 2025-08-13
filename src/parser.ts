@@ -67,11 +67,11 @@ export const isJSONRequest = (entry: HAREntry): boolean => {
   const contentType = entry.request.postData?.mimeType || 
     entry.request.headers.find(h => h.name.toLowerCase() === "content-type")?.value || ""
   
-  return contentType.includes("application/json")
+  return contentType.includes("json")
 }
 
 export const isJSONResponse = (entry: HAREntry): boolean => {
-  return entry.response.content.mimeType?.includes("application/json") || false
+  return entry.response.content.mimeType?.includes("json") || false
 }
 
 export const isGraphQLRequest = (entry: HAREntry): boolean => {

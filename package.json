@@ -2,7 +2,6 @@
   "name": "har-api-extract",
   "version": "2.1.4",
   "description": "Extract and format JSON/GraphQL API requests from HAR files for LLM analysis",
-  "module": "index.ts",
   "type": "module",
   "author": "ashafovaloff",
   "license": "MIT",
