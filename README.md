@@ -12,17 +12,36 @@ A CLI tool to extract and format JSON/GraphQL API requests from HAR files for LL
 
 ## Installation
 
-### Using Bun
+### Quick Usage (no install)
 
 ```bash
-bun install
-chmod +x har
+# Using npx
+npx har-api-extract network.har
+
+# Using bunx (faster)
+bunx har-api-extract network.har
 ```
 
-### Build Standalone Binary
+### Global Install
 
 ```bash
-bun build har --compile --outfile har-binary
+# Using npm
+npm install -g har-api-extract
+
+# Using bun
+bun install -g har-api-extract
+
+# Then use directly
+har network.har
+```
+
+### From Source
+
+```bash
+git clone https://github.com/aaronshaf/har-api-extract.git
+cd har-api-extract
+bun install
+chmod +x har
 ```
 
 ## Usage
