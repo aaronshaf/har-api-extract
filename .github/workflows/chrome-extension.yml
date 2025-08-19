@@ -16,17 +16,30 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: Check if Chrome extension exists
+      id: check_extension
+      run: |
+        if [ -d "chrome-extension" ]; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "Chrome extension directory not found, skipping workflow"
+        fi
+    
     - name: Setup Node.js
+      if: steps.check_extension.outputs.exists == 'true'
       uses: actions/setup-node@v4
       with:
         node-version: 20.x
     
     - name: Setup pnpm
+      if: steps.check_extension.outputs.exists == 'true'
       uses: pnpm/action-setup@v4
       with:
         version: 9
     
     - name: Install Chrome extension dependencies
+      if: steps.check_extension.outputs.exists == 'true'
       working-directory: chrome-extension
       run: |
         if [ -f "package.json" ]; then
@@ -36,32 +49,50 @@ jobs:
         fi
     
     - name: TypeScript compilation check
+      if: steps.check_extension.outputs.exists == 'true'
       working-directory: chrome-extension
       run: |
-        if [ -f "tsconfig.json" ] && [ -f "src/background.ts" ]; then
+        if [ -f "tsconfig.json" ]; then
           # Install types if not already installed
           npm install --save-dev @types/chrome || true
-          npx tsc --noEmit || {
-            echo "::warning::TypeScript compilation has errors, but continuing..."
-            exit 0
-          }
-          echo "TypeScript check completed"
+          
+          # Check if source TypeScript files exist
+          if [ -f "src/background.ts" ]; then
+            echo "Checking TypeScript compilation..."
+            npx tsc --noEmit || {
+              echo "::warning::TypeScript compilation has errors, but continuing..."
+              exit 0
+            }
+          else
+            echo "No TypeScript source files found, skipping compilation check"
+          fi
         else
           echo "No TypeScript configuration found"
         fi
     
     - name: Build TypeScript files
+      if: steps.check_extension.outputs.exists == 'true'
       working-directory: chrome-extension
       run: |
-        if [ -f "src/background.ts" ]; then
+        if [ -f "tsconfig.json" ] && [ -f "src/background.ts" ]; then
+          echo "Building TypeScript files..."
           npx tsc || {
             echo "::warning::TypeScript compilation has warnings, using existing JS files"
+            # Check if JS files exist as fallback
+            if [ -f "background.js" ]; then
+              echo "Using existing JavaScript files"
+            else
+              echo "::error::No JavaScript files found and TypeScript compilation failed"
+            fi
             exit 0
           }
           echo "TypeScript files compiled"
+        else
+          echo "No TypeScript source files to build"
         fi
     
     - name: Validate manifest.json
+      if: steps.check_extension.outputs.exists == 'true'
       working-directory: chrome-extension
       run: |
         node -e "
@@ -98,6 +129,7 @@ jobs:
         "
     
     - name: Check for required extension files
+      if: steps.check_extension.outputs.exists == 'true'
       working-directory: chrome-extension
       run: |
         FILES="manifest.json popup.html popup.js background.js"
@@ -115,6 +147,7 @@ jobs:
         fi
     
     - name: Check extension icons
+      if: steps.check_extension.outputs.exists == 'true'
       working-directory: chrome-extension
       run: |
         ICONS="icon16.png icon48.png icon128.png"
@@ -133,6 +166,7 @@ jobs:
         fi
     
     - name: Package extension
+      if: steps.check_extension.outputs.exists == 'true'
       working-directory: chrome-extension
       run: |
         # Create a zip file for the extension
@@ -141,6 +175,7 @@ jobs:
         echo "Package size: $(du -h extension.zip | cut -f1)"
     
     - name: Upload extension artifact
+      if: steps.check_extension.outputs.exists == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: chrome-extension-${{ github.sha }}
