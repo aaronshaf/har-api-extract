@@ -1,0 +1,14 @@
+{
+  "name": "har-api-extractor-extension",
+  "version": "1.0.0",
+  "description": "Chrome extension for recording API requests",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.254",
+    "typescript": "^5.3.3"
+  }
+}

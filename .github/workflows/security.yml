@@ -1,0 +1,228 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run security scan every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+    
+    - name: Run npm audit
+      run: |
+        echo "Running npm audit..."
+        npm install --package-lock-only || true
+        npm audit --json > audit-report.json 2>&1 || true
+        
+        if [ -f "audit-report.json" ]; then
+          node -e "
+          const fs = require('fs');
+          try {
+            const content = fs.readFileSync('audit-report.json', 'utf8');
+            const report = JSON.parse(content);
+            
+            if (report.metadata && report.metadata.vulnerabilities) {
+              console.log('Vulnerability Summary:');
+              console.log('----------------------');
+              const vulns = report.metadata.vulnerabilities;
+              console.log('Critical:', vulns.critical || 0);
+              console.log('High:', vulns.high || 0);
+              console.log('Moderate:', vulns.moderate || 0);
+              console.log('Low:', vulns.low || 0);
+              
+              if (vulns.critical > 0) {
+                console.log('::error::Found ' + vulns.critical + ' critical vulnerabilities');
+              }
+              if (vulns.high > 0) {
+                console.log('::warning::Found ' + vulns.high + ' high severity vulnerabilities');
+              }
+            } else {
+              console.log('No vulnerability data found in audit report');
+            }
+          } catch (e) {
+            console.log('Could not parse audit report:', e.message);
+          }
+          " || echo "Failed to parse audit report"
+        else
+          echo "No audit report generated"
+        fi
+    
+    - name: Upload audit report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: npm-audit-report
+        path: audit-report.json
+        retention-days: 30
+
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript-typescript' ]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        queries: security-and-quality
+    
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+    
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
+
+  semgrep:
+    name: Semgrep Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Semgrep
+      uses: returntocorp/semgrep-action@v1
+      with:
+        config: >-
+          p/security-audit
+          p/nodejs
+          p/typescript
+          p/owasp-top-ten
+      continue-on-error: true
+
+  trivy:
+    name: Trivy Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner in repo mode
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+    
+    - name: Upload Trivy results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  osv-scanner:
+    name: OSV Vulnerability Scanner
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run OSV Scanner
+      run: |
+        # Install OSV Scanner
+        curl -sSfL https://github.com/google/osv-scanner/releases/download/v1.9.1/osv-scanner_linux_amd64 -o osv-scanner
+        chmod +x osv-scanner
+        
+        # Run the scan
+        ./osv-scanner --json --output=osv-results.json . || true
+        
+        # Display results
+        if [ -f "osv-results.json" ]; then
+          echo "OSV Scanner Results:"
+          cat osv-results.json | jq '.' 2>/dev/null || cat osv-results.json
+        else
+          echo "No OSV results file generated"
+        fi
+      continue-on-error: true
+
+  secrets-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: TruffleHog OSS
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: ${{ github.event.repository.default_branch }}
+        head: HEAD
+        extra_args: --debug --only-verified
+
+  license-check:
+    name: License Compliance
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Check licenses
+      run: |
+        npx license-checker --json --out licenses.json
+        
+        echo "License Summary:"
+        node -e "
+        const licenses = require('./licenses.json');
+        const summary = {};
+        
+        Object.values(licenses).forEach(pkg => {
+          const license = pkg.licenses || 'Unknown';
+          summary[license] = (summary[license] || 0) + 1;
+        });
+        
+        Object.entries(summary).forEach(([license, count]) => {
+          console.log(\`\${license}: \${count}\`);
+          
+          // Flag potentially problematic licenses
+          const problematic = ['GPL', 'AGPL', 'LGPL', 'SSPL'];
+          if (problematic.some(l => license.includes(l))) {
+            console.log(\`::warning::Found potentially restrictive license: \${license}\`);
+          }
+        });
+        "
+    
+    - name: Upload license report
+      uses: actions/upload-artifact@v4
+      with:
+        name: license-report
+        path: licenses.json
+        retention-days: 30

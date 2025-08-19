@@ -1,0 +1,208 @@
+name: Code Quality
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [ main ]
+
+jobs:
+  prettier:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+    
+    - name: Install Prettier
+      run: npm install --save-dev prettier
+    
+    - name: Check code formatting
+      run: |
+        echo "Checking code formatting with Prettier..."
+        npx prettier --check "**/*.{js,ts,json,md,yml,yaml}" --ignore-path .gitignore || {
+          echo "::warning::Code formatting issues found. Run 'npx prettier --write .' to fix."
+          exit 0
+        }
+
+  commitlint:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+    
+    - name: Check commit messages
+      run: |
+        echo "Checking commit message format..."
+        # Get all commit messages in the PR
+        git log --format="%s" origin/${{ github.base_ref }}..HEAD | while read -r msg; do
+          # Check if commit follows conventional commits format
+          if ! echo "$msg" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .+'; then
+            echo "::warning::Commit doesn't follow conventional format: $msg"
+          else
+            echo "✓ Valid commit: $msg"
+          fi
+        done
+
+  complexity:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+    
+    - name: Analyze code complexity
+      run: |
+        npm install --save-dev complexity-report
+        echo "Analyzing code complexity..."
+        npx cr --format json src/*.ts 2>/dev/null | node -e "
+        const input = require('fs').readFileSync(0, 'utf-8');
+        if (input) {
+          const report = JSON.parse(input);
+          console.log('Code Complexity Analysis:');
+          console.log('-------------------------');
+          report.reports?.forEach(file => {
+            if (file.complexity > 20) {
+              console.log(\`::warning::High complexity in \${file.path}: \${file.complexity}\`);
+            }
+          });
+        }
+        " || echo "Complexity analysis skipped"
+
+  duplicate-code:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+    
+    - name: Check for duplicate code
+      run: |
+        npm install --save-dev jscpd
+        echo "Checking for duplicate code..."
+        npx jscpd src --min-lines 5 --min-tokens 50 --format "json" -o jscpd-report.json || true
+        
+        if [ -f "jscpd-report.json" ]; then
+          node -e "
+          const report = require('./jscpd-report.json');
+          if (report.statistics.clones > 0) {
+            console.log('::warning::Found', report.statistics.clones, 'code duplications');
+            console.log('Total duplicate lines:', report.statistics.duplicatedLines);
+          } else {
+            console.log('✓ No significant code duplication found');
+          }
+          "
+        fi
+
+  bundle-size:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+    
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9
+    
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile || npm install
+    
+    - name: Check bundle size
+      run: |
+        echo "Checking bundle sizes..."
+        # Check main package size
+        npx size-limit --json 2>/dev/null | node -e "
+        const input = require('fs').readFileSync(0, 'utf-8');
+        if (input) {
+          const results = JSON.parse(input);
+          results.forEach(item => {
+            console.log(\`\${item.name}: \${(item.size / 1024).toFixed(2)} KB\`);
+            if (item.size > 1024 * 1024) {
+              console.log(\`::warning::Large bundle size for \${item.name}\`);
+            }
+          });
+        }
+        " || {
+          echo "Bundle size check using fallback method..."
+          du -sh dist/* 2>/dev/null || du -sh cli.js src/*.js 2>/dev/null || echo "No built files to measure"
+        }
+
+  documentation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check README
+      run: |
+        if [ ! -f "README.md" ]; then
+          echo "::error::README.md is missing"
+          exit 1
+        fi
+        
+        # Check for essential sections
+        for section in "Installation" "Usage" "API" "License"; do
+          if ! grep -qi "$section" README.md; then
+            echo "::warning::README.md might be missing section: $section"
+          fi
+        done
+        
+        echo "✓ README.md exists and appears complete"
+    
+    - name: Check for JSDoc comments
+      run: |
+        echo "Checking for documentation in code..."
+        # Simple approach without complex shell arithmetic
+        if [ -d "src" ]; then
+          total_count=$(grep -E "(function |const \w+ = |export (async )?function)" src/*.ts 2>/dev/null | wc -l || echo "0")
+          doc_count=$(grep -B1 -E "(function |const \w+ = )" src/*.ts 2>/dev/null | grep -c "/\*\*" || echo "0")
+          
+          # Clean up the values
+          total_count=$(echo "$total_count" | tr -d '[:space:]')
+          doc_count=$(echo "$doc_count" | tr -d '[:space:]')
+          
+          echo "Total functions found: $total_count"
+          echo "Documented functions: $doc_count"
+          
+          # Use bc for percentage calculation if available, otherwise skip
+          if command -v bc >/dev/null 2>&1 && [ "$total_count" != "0" ]; then
+            percent=$(echo "scale=0; $doc_count * 100 / $total_count" | bc)
+            echo "Documentation coverage: ${percent}%"
+            
+            if [ "$percent" -lt "50" ]; then
+              echo "::warning::Low documentation coverage (${percent}%)"
+            fi
+          elif [ "$total_count" != "0" ]; then
+            echo "Documentation found: $doc_count out of $total_count functions"
+          else
+            echo "No functions found to check for documentation"
+          fi
+        else
+          echo "Source directory not found, skipping documentation check"
+        fi

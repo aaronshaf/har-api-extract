@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.2.3)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        registry-url: 'https://registry.npmjs.org'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run tests
+      run: npm test
+    
+    - name: Build package
+      run: |
+        # Build TypeScript if needed
+        if [ -f "tsconfig.json" ]; then
+          npx tsc
+        fi
+        
+        # Build Chrome extension
+        if [ -d "chrome-extension" ]; then
+          cd chrome-extension
+          if [ -f "tsconfig.json" ]; then
+            npx tsc
+          fi
+          zip -r ../chrome-extension.zip . -x "*.ts" -x "node_modules/*" -x "package*.json" -x "tsconfig.json"
+          cd ..
+        fi
+    
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Get the previous tag
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        CURRENT_TAG="${{ github.ref_name }}"
+        
+        echo "## What's Changed" > RELEASE_NOTES.md
+        echo "" >> RELEASE_NOTES.md
+        
+        if [ -n "$PREV_TAG" ]; then
+          # Get commit messages between tags
+          git log --pretty=format:"* %s (%h)" $PREV_TAG..$CURRENT_TAG >> RELEASE_NOTES.md
+        else
+          # First release - get all commits
+          git log --pretty=format:"* %s (%h)" >> RELEASE_NOTES.md
+        fi
+        
+        echo "" >> RELEASE_NOTES.md
+        echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG" >> RELEASE_NOTES.md
+        
+        cat RELEASE_NOTES.md
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        body_path: RELEASE_NOTES.md
+        files: |
+          chrome-extension.zip
+        generate_release_notes: true
+        draft: false
+        prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+    
+    - name: Publish to npm
+      if: "!contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha')"
+      run: npm publish
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    
+    - name: Publish beta to npm
+      if: contains(github.ref_name, '-beta')
+      run: npm publish --tag beta
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    
+    - name: Update Chrome Web Store
+      if: "!contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha')"
+      continue-on-error: true
+      run: |
+        echo "Chrome Web Store publishing would happen here"
+        echo "This requires setting up Chrome Web Store API credentials"
+        # npm install -g chrome-webstore-upload-cli
+        # chrome-webstore-upload upload --source chrome-extension.zip --extension-id ${{ secrets.CHROME_EXTENSION_ID }}
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: release
+    if: "!contains(github.ref_name, '-beta') && !contains(github.ref_name, '-alpha')"
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Create Dockerfile if not exists
+      run: |
+        if [ ! -f "Dockerfile" ]; then
+          cat > Dockerfile << 'EOF'
+        FROM node:20-alpine
+        WORKDIR /app
+        COPY package*.json ./
+        RUN npm ci --only=production
+        COPY . .
+        ENTRYPOINT ["node", "cli.js"]
+        EOF
+        fi
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+      continue-on-error: true
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/har-api-extract:latest
+          ${{ secrets.DOCKER_USERNAME }}/har-api-extract:${{ github.ref_name }}
+      continue-on-error: true

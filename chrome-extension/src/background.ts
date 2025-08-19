@@ -1,8 +1,11 @@
+import type { HAR, HAREntry, CapturedRequest } from '../types/har';
+
 // Background service worker to handle debugger API
-let debuggeeId = null;
-let capturedRequests = [];
+let debuggeeId: chrome.debugger.Debuggee | null = null;
+let capturedRequests: CapturedRequest[] = [];
 let isCapturing = false;
 
+// Message handler
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'getStatus') {
     sendResponse({ isCapturing, tabId: debuggeeId?.tabId });
@@ -12,7 +15,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'startCapture') {
     startCapture(request.tabId)
       .then(() => sendResponse({ success: true }))
-      .catch(error => {
+      .catch((error: Error) => {
         console.error('Start capture error:', error);
         sendResponse({ success: false, error: error.message });
       });
@@ -22,7 +25,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'stopCapture') {
     stopCapture()
       .then(har => sendResponse({ success: true, har }))
-      .catch(error => {
+      .catch((error: Error) => {
         console.error('Stop capture error:', error);
         sendResponse({ success: false, error: error.message });
       });
@@ -30,11 +33,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-async function startCapture(tabId) {
+async function startCapture(tabId: number): Promise<void> {
   try {
     debuggeeId = { tabId };
     capturedRequests = [];
     isCapturing = true;
+    
+    // Update icon to recording state
+    updateIcon('recording');
     
     // Attach debugger
     await chrome.debugger.attach(debuggeeId, "1.3");
@@ -52,11 +58,12 @@ async function startCapture(tabId) {
     debuggeeId = null;
     capturedRequests = [];
     isCapturing = false;
+    updateIcon('default');
     throw error;
   }
 }
 
-async function stopCapture() {
+async function stopCapture(): Promise<HAR> {
   if (!debuggeeId) {
     throw new Error('No capture in progress');
   }
@@ -67,12 +74,12 @@ async function stopCapture() {
   await new Promise(resolve => setTimeout(resolve, 500));
   
   // Collect response bodies for requests that have finished loading
-  const bodyPromises = [];
+  const bodyPromises: Promise<void>[] = [];
   for (const request of capturedRequests) {
     if (request.response && !request.response.body && request.loadingFinished) {
       bodyPromises.push(
         fetchResponseBody(request.requestId).then(body => {
-          if (body) {
+          if (body && request.response) {
             request.response.body = body;
           }
         })
@@ -116,25 +123,27 @@ async function stopCapture() {
   capturedRequests = [];
   isCapturing = false;
   
+  // Update icon back to default state
+  updateIcon('default');
+  
   console.log('HAR generated with', har.log.entries.length, 'entries');
   
   return har;
 }
 
 // Helper function to fetch response body with proper error handling
-async function fetchResponseBody(requestId, maxSize = 100000) {
+async function fetchResponseBody(requestId: string, maxSize = 100000): Promise<string | null> {
   if (!debuggeeId) return null;
   
   return new Promise((resolve) => {
     chrome.debugger.sendCommand(
-      debuggeeId,
+      debuggeeId!,
       "Network.getResponseBody",
       { requestId },
       (response) => {
         // Always check for runtime errors
         if (chrome.runtime.lastError) {
           // This is expected for some resources (images, failed requests, etc)
-          // Just log it at debug level
           console.debug(`No body available for ${requestId}:`, chrome.runtime.lastError.message);
           resolve(null);
           return;
@@ -156,7 +165,7 @@ async function fetchResponseBody(requestId, maxSize = 100000) {
   });
 }
 
-function onDebuggerEvent(source, method, params) {
+function onDebuggerEvent(source: chrome.debugger.Debuggee, method: string, params?: any): void {
   if (!debuggeeId || source.tabId !== debuggeeId.tabId) return;
   
   switch (method) {
@@ -220,30 +229,30 @@ function onDebuggerEvent(source, method, params) {
   }
 }
 
-function convertToHAR(requests) {
-  const entries = requests
+function convertToHAR(requests: CapturedRequest[]): HAR {
+  const entries: HAREntry[] = requests
     .filter(r => r.response && !r.failed) // Exclude failed requests
     .map(r => {
-      const entry = {
+      const entry: HAREntry = {
         startedDateTime: new Date(r.request.timestamp * 1000).toISOString(),
-        time: r.response.timestamp ? (r.response.timestamp - r.request.timestamp) * 1000 : 0,
+        time: r.response!.timestamp ? (r.response!.timestamp - r.request.timestamp) * 1000 : 0,
         request: {
           method: r.request.method,
           url: r.request.url,
-          headers: Object.entries(r.request.headers || {}).map(([name, value]) => ({ name, value })),
+          headers: Object.entries(r.request.headers || {}).map(([name, value]) => ({ name, value: String(value) })),
           postData: r.request.postData ? {
             mimeType: r.request.headers?.['content-type'] || 'application/json',
             text: r.request.postData
           } : undefined
         },
         response: {
-          status: r.response.status,
-          statusText: r.response.statusText,
-          headers: Object.entries(r.response.headers || {}).map(([name, value]) => ({ name, value })),
+          status: r.response!.status,
+          statusText: r.response!.statusText,
+          headers: Object.entries(r.response!.headers || {}).map(([name, value]) => ({ name, value: String(value) })),
           content: {
-            size: r.response.body ? r.response.body.length : 0,
-            mimeType: r.response.mimeType,
-            text: r.response.body || ""
+            size: r.response!.body ? r.response!.body.length : 0,
+            mimeType: r.response!.mimeType,
+            text: r.response!.body || ""
           }
         }
       };
@@ -268,8 +277,27 @@ function convertToHAR(requests) {
   };
 }
 
+// Function to update extension icon
+function updateIcon(state: 'default' | 'recording' | 'inactive'): void {
+  const iconPath = state === 'recording' ? {
+    16: 'icon-recording16.png',
+    48: 'icon-recording48.png',
+    128: 'icon-recording128.png'
+  } : state === 'inactive' ? {
+    16: 'icon-inactive16.png',
+    48: 'icon-inactive48.png',
+    128: 'icon-inactive128.png'
+  } : {
+    16: 'icon16.png',
+    48: 'icon48.png',
+    128: 'icon128.png'
+  };
+  
+  chrome.action.setIcon({ path: iconPath });
+}
+
 // Handle debugger detachment (user closes DevTools or navigates away)
-chrome.debugger.onDetach.addListener((source, reason) => {
+chrome.debugger.onDetach.addListener((source: chrome.debugger.Debuggee, reason?: string) => {
   if (debuggeeId && source.tabId === debuggeeId.tabId) {
     console.log('Debugger detached:', reason);
     debuggeeId = null;
@@ -278,64 +306,3 @@ chrome.debugger.onDetach.addListener((source, reason) => {
     updateIcon('default');
   }
 });
-
-// Handle keyboard shortcuts
-chrome.commands.onCommand.addListener(async (command) => {
-  if (command === 'toggle-recording') {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || !tab.id) return;
-    
-    if (isCapturing) {
-      // Stop recording
-      try {
-        const har = await stopCapture();
-        // Store HAR for popup to retrieve
-        await chrome.storage.local.set({ lastHAR: har, timestamp: Date.now() });
-        // Show notification
-        chrome.action.setBadgeText({ text: '✓' });
-        chrome.action.setBadgeBackgroundColor({ color: '#4CAF50' });
-        setTimeout(() => chrome.action.setBadgeText({ text: '' }), 3000);
-      } catch (error) {
-        console.error('Error stopping capture:', error);
-        chrome.action.setBadgeText({ text: '!' });
-        chrome.action.setBadgeBackgroundColor({ color: '#f44336' });
-        setTimeout(() => chrome.action.setBadgeText({ text: '' }), 3000);
-      }
-    } else {
-      // Start recording
-      try {
-        await startCapture(tab.id);
-        chrome.action.setBadgeText({ text: 'REC' });
-        chrome.action.setBadgeBackgroundColor({ color: '#dc3545' });
-      } catch (error) {
-        console.error('Error starting capture:', error);
-        chrome.action.setBadgeText({ text: '!' });
-        chrome.action.setBadgeBackgroundColor({ color: '#f44336' });
-        setTimeout(() => chrome.action.setBadgeText({ text: '' }), 3000);
-      }
-    }
-  }
-});
-
-// Function to update extension icon
-function updateIcon(state) {
-  const iconPath = state === 'recording' ? {
-    16: 'icon-recording16.png',
-    48: 'icon-recording48.png',
-    128: 'icon-recording128.png'
-  } : {
-    16: 'icon16.png',
-    48: 'icon48.png',
-    128: 'icon128.png'
-  };
-  
-  chrome.action.setIcon({ path: iconPath });
-  
-  // Update badge
-  if (state === 'recording') {
-    chrome.action.setBadgeText({ text: 'REC' });
-    chrome.action.setBadgeBackgroundColor({ color: '#dc3545' });
-  } else {
-    chrome.action.setBadgeText({ text: '' });
-  }
-}
