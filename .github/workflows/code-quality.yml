@@ -178,23 +178,32 @@ jobs:
     - name: Check for JSDoc comments
       run: |
         echo "Checking for documentation in code..."
-        # Count functions with JSDoc comments
-        TOTAL_FUNCS=$(grep -E "(function |const \w+ = |export (async )?function)" src/*.ts 2>/dev/null | wc -l | tr -d ' ')
-        DOC_FUNCS=$(grep -B1 -E "(function |const \w+ = )" src/*.ts 2>/dev/null | grep -c "/\*\*" || echo "0")
+        # Count functions with JSDoc comments - ensure numeric values
+        if [ -d "src" ]; then
+          TOTAL_FUNCS=$(grep -E "(function |const \w+ = |export (async )?function)" src/*.ts 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+          DOC_FUNCS=$(grep -B1 -E "(function |const \w+ = )" src/*.ts 2>/dev/null | grep -c "/\*\*" || echo "0")
+        else
+          TOTAL_FUNCS="0"
+          DOC_FUNCS="0"
+        fi
         
-        # Ensure variables are numbers - trim whitespace
-        TOTAL_FUNCS=$(echo "$TOTAL_FUNCS" | tr -d ' ')
-        DOC_FUNCS=$(echo "$DOC_FUNCS" | tr -d ' ')
+        # Ensure we have numeric values
+        TOTAL_FUNCS="${TOTAL_FUNCS:-0}"
+        DOC_FUNCS="${DOC_FUNCS:-0}"
         
-        # Default to 0 if empty
-        : ${TOTAL_FUNCS:=0}
-        : ${DOC_FUNCS:=0}
+        # Remove any remaining whitespace
+        TOTAL_FUNCS=$(echo "$TOTAL_FUNCS" | sed 's/[^0-9]//g')
+        DOC_FUNCS=$(echo "$DOC_FUNCS" | sed 's/[^0-9]//g')
         
-        if [ "$TOTAL_FUNCS" -gt "0" ]; then
+        # Final fallback
+        [ -z "$TOTAL_FUNCS" ] && TOTAL_FUNCS="0"
+        [ -z "$DOC_FUNCS" ] && DOC_FUNCS="0"
+        
+        if [ "$TOTAL_FUNCS" -gt 0 ]; then
           PERCENT=$((DOC_FUNCS * 100 / TOTAL_FUNCS))
           echo "Documentation coverage: $DOC_FUNCS/$TOTAL_FUNCS functions ($PERCENT%)"
           
-          if [ "$PERCENT" -lt "50" ]; then
+          if [ "$PERCENT" -lt 50 ]; then
             echo "::warning::Low documentation coverage ($PERCENT%)"
           fi
         else

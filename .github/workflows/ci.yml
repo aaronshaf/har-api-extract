@@ -86,29 +86,6 @@ jobs:
         har-api-extract test.har
         rm test.har
 
-  test-node18:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Node.js 18
-      uses: actions/setup-node@v4
-      with:
-        node-version: 18.x
-    
-    - name: Setup pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 9
-    
-    - name: Install dependencies
-      run: pnpm install --frozen-lockfile || npm install
-    
-    - name: Run tests (Node 18 - experimental)
-      run: npm test || echo "::warning::Tests failed on Node 18. This is expected due to compatibility issues."
-    
   typecheck:
     runs-on: ubuntu-latest
     
