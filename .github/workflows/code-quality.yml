@@ -178,34 +178,31 @@ jobs:
     - name: Check for JSDoc comments
       run: |
         echo "Checking for documentation in code..."
-        # Count functions with JSDoc comments - ensure numeric values
+        # Simple approach without complex shell arithmetic
         if [ -d "src" ]; then
-          TOTAL_FUNCS=$(grep -E "(function |const \w+ = |export (async )?function)" src/*.ts 2>/dev/null | wc -l | tr -d ' ' || echo "0")
-          DOC_FUNCS=$(grep -B1 -E "(function |const \w+ = )" src/*.ts 2>/dev/null | grep -c "/\*\*" || echo "0")
-        else
-          TOTAL_FUNCS="0"
-          DOC_FUNCS="0"
-        fi
-        
-        # Ensure we have numeric values
-        TOTAL_FUNCS="${TOTAL_FUNCS:-0}"
-        DOC_FUNCS="${DOC_FUNCS:-0}"
-        
-        # Remove any remaining whitespace
-        TOTAL_FUNCS=$(echo "$TOTAL_FUNCS" | sed 's/[^0-9]//g')
-        DOC_FUNCS=$(echo "$DOC_FUNCS" | sed 's/[^0-9]//g')
-        
-        # Final fallback
-        [ -z "$TOTAL_FUNCS" ] && TOTAL_FUNCS="0"
-        [ -z "$DOC_FUNCS" ] && DOC_FUNCS="0"
-        
-        if [ "$TOTAL_FUNCS" -gt 0 ]; then
-          PERCENT=$((DOC_FUNCS * 100 / TOTAL_FUNCS))
-          echo "Documentation coverage: $DOC_FUNCS/$TOTAL_FUNCS functions ($PERCENT%)"
+          total_count=$(grep -E "(function |const \w+ = |export (async )?function)" src/*.ts 2>/dev/null | wc -l || echo "0")
+          doc_count=$(grep -B1 -E "(function |const \w+ = )" src/*.ts 2>/dev/null | grep -c "/\*\*" || echo "0")
           
-          if [ "$PERCENT" -lt 50 ]; then
-            echo "::warning::Low documentation coverage ($PERCENT%)"
+          # Clean up the values
+          total_count=$(echo "$total_count" | tr -d '[:space:]')
+          doc_count=$(echo "$doc_count" | tr -d '[:space:]')
+          
+          echo "Total functions found: $total_count"
+          echo "Documented functions: $doc_count"
+          
+          # Use bc for percentage calculation if available, otherwise skip
+          if command -v bc >/dev/null 2>&1 && [ "$total_count" != "0" ]; then
+            percent=$(echo "scale=0; $doc_count * 100 / $total_count" | bc)
+            echo "Documentation coverage: ${percent}%"
+            
+            if [ "$percent" -lt "50" ]; then
+              echo "::warning::Low documentation coverage (${percent}%)"
+            fi
+          elif [ "$total_count" != "0" ]; then
+            echo "Documentation found: $doc_count out of $total_count functions"
+          else
+            echo "No functions found to check for documentation"
           fi
         else
-          echo "No functions found to check for documentation"
+          echo "Source directory not found, skipping documentation check"
         fi
