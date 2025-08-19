@@ -53,7 +53,36 @@ jobs:
     
     - name: Test example HAR processing
       run: |
-        echo '{"log":{"entries":[{"request":{"method":"GET","url":"https://api.example.com/test","headers":[{"name":"Content-Type","value":"application/json"}]},"response":{"status":200,"content":{"mimeType":"application/json","text":"{\\"test\\":true}"}}}]}}' > test.har
+        cat > test.har << 'EOF'
+        {
+          "log": {
+            "version": "1.2",
+            "creator": {
+              "name": "test",
+              "version": "1.0"
+            },
+            "entries": [{
+              "request": {
+                "method": "GET",
+                "url": "https://api.example.com/test",
+                "headers": [{
+                  "name": "Content-Type",
+                  "value": "application/json"
+                }]
+              },
+              "response": {
+                "status": 200,
+                "content": {
+                  "mimeType": "application/json",
+                  "text": "{\"test\":true}"
+                }
+              },
+              "startedDateTime": "2024-01-01T00:00:00Z",
+              "time": 100
+            }]
+          }
+        }
+        EOF
         har-api-extract test.har
         rm test.har
 
