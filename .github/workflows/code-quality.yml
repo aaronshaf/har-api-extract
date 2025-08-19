@@ -179,18 +179,22 @@ jobs:
       run: |
         echo "Checking for documentation in code..."
         # Count functions with JSDoc comments
-        TOTAL_FUNCS=$(grep -E "(function |const \w+ = |export (async )?function)" src/*.ts 2>/dev/null | wc -l)
-        DOC_FUNCS=$(grep -B1 -E "(function |const \w+ = )" src/*.ts 2>/dev/null | grep -c "/\*\*" || echo 0)
+        TOTAL_FUNCS=$(grep -E "(function |const \w+ = |export (async )?function)" src/*.ts 2>/dev/null | wc -l | tr -d ' ')
+        DOC_FUNCS=$(grep -B1 -E "(function |const \w+ = )" src/*.ts 2>/dev/null | grep -c "/\*\*" || echo "0")
         
-        # Ensure variables are numbers
-        TOTAL_FUNCS=${TOTAL_FUNCS:-0}
-        DOC_FUNCS=${DOC_FUNCS:-0}
+        # Ensure variables are numbers - trim whitespace
+        TOTAL_FUNCS=$(echo "$TOTAL_FUNCS" | tr -d ' ')
+        DOC_FUNCS=$(echo "$DOC_FUNCS" | tr -d ' ')
         
-        if [ "$TOTAL_FUNCS" -gt 0 ]; then
+        # Default to 0 if empty
+        : ${TOTAL_FUNCS:=0}
+        : ${DOC_FUNCS:=0}
+        
+        if [ "$TOTAL_FUNCS" -gt "0" ]; then
           PERCENT=$((DOC_FUNCS * 100 / TOTAL_FUNCS))
           echo "Documentation coverage: $DOC_FUNCS/$TOTAL_FUNCS functions ($PERCENT%)"
           
-          if [ "$PERCENT" -lt 50 ]; then
+          if [ "$PERCENT" -lt "50" ]; then
             echo "::warning::Low documentation coverage ($PERCENT%)"
           fi
         else
