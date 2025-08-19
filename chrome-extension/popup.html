@@ -76,12 +76,21 @@
 </head>
 <body>
   <h1>🔴 Record API Requests</h1>
+  <p style="font-size: 12px; color: #666; margin: -10px 0 15px 0;">Press Cmd+Shift+R to toggle recording</p>
   
   <button id="extract">Record API Requests</button>
   <button id="copy" style="display:none;">Copy to Clipboard</button>
+  <button id="save" style="display:none;">Save as HAR File</button>
+  <button id="retry" style="display:none; background: #ff9800;">Retry Failed Requests</button>
   
   <div id="status"></div>
   <div id="stats"></div>
+  <div id="progress" style="display:none;">
+    <div style="background: #e0e0e0; height: 4px; border-radius: 2px; margin: 10px 0;">
+      <div id="progressBar" style="background: #4CAF50; height: 100%; border-radius: 2px; width: 0%; transition: width 0.3s;"></div>
+    </div>
+    <div id="progressText" style="font-size: 11px; color: #666;"></div>
+  </div>
 
   <script src="popup.js"></script>
 </body>

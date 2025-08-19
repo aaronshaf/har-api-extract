@@ -1,12 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Record API Requests",
-  "version": "1.0.0",
-  "description": "Record JSON/GraphQL API requests from current page for LLM analysis",
+  "version": "1.1.0",
+  "description": "Capture and format JSON/GraphQL API requests from any webpage for LLM analysis. Extract network requests, filter API calls, and export in a format optimized for AI tools.",
+  "author": "ashafovaloff",
+  "homepage_url": "https://github.com/aaronshaf/har-api-extract",
   "permissions": [
     "activeTab",
     "clipboardWrite",
-    "debugger"
+    "debugger",
+    "storage",
+    "downloads"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -14,7 +18,8 @@
       "16": "icon16.png",
       "48": "icon48.png",
       "128": "icon128.png"
-    }
+    },
+    "default_title": "Record API Requests - Click to start recording"
   },
   "icons": {
     "16": "icon16.png",
@@ -22,6 +27,24 @@
     "128": "icon128.png"
   },
   "background": {
-    "service_worker": "background.js"
-  }
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "commands": {
+    "toggle-recording": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+R",
+        "mac": "Command+Shift+R"
+      },
+      "description": "Toggle API request recording"
+    },
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+E",
+        "mac": "Command+Shift+E"
+      }
+    }
+  },
+  "offline_enabled": true,
+  "minimum_chrome_version": "110"
 }
