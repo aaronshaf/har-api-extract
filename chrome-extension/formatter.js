@@ -25,10 +25,12 @@ function isGraphQLRequest(entry) {
 }
 
 function filterJSONAndGraphQLEntries(entries) {
-  return entries.filter(entry => 
-    (isJSONRequest(entry) || isJSONResponse(entry)) && 
-    entry.response?.content?.text !== undefined
-  );
+  return entries.filter(entry => {
+    // Must have either JSON request or JSON response
+    const hasJSON = isJSONRequest(entry) || isJSONResponse(entry);
+    // Response content text can be undefined for some resources
+    return hasJSON;
+  });
 }
 
 function formatEntry(entry, index) {
