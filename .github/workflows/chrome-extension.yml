@@ -1,0 +1,160 @@
+name: Chrome Extension Validation
+
+on:
+  push:
+    paths:
+      - 'chrome-extension/**'
+  pull_request:
+    paths:
+      - 'chrome-extension/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+    
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9
+    
+    - name: Install Chrome extension dependencies
+      working-directory: chrome-extension
+      run: |
+        if [ -f "package.json" ]; then
+          pnpm install --frozen-lockfile || npm install
+        else
+          echo "No package.json found, skipping dependency installation"
+        fi
+    
+    - name: TypeScript compilation check
+      working-directory: chrome-extension
+      run: |
+        if [ -f "tsconfig.json" ]; then
+          npx tsc --noEmit
+          echo "TypeScript check passed"
+        else
+          echo "No TypeScript configuration found"
+        fi
+    
+    - name: Build TypeScript files
+      working-directory: chrome-extension
+      run: |
+        if [ -f "src/background.ts" ]; then
+          npx tsc
+          echo "TypeScript files compiled successfully"
+        fi
+    
+    - name: Validate manifest.json
+      working-directory: chrome-extension
+      run: |
+        node -e "
+        const fs = require('fs');
+        const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+        
+        // Check required fields
+        const required = ['manifest_version', 'name', 'version'];
+        const missing = required.filter(field => !manifest[field]);
+        
+        if (missing.length > 0) {
+          console.error('Missing required fields:', missing);
+          process.exit(1);
+        }
+        
+        // Validate manifest version
+        if (manifest.manifest_version !== 3) {
+          console.error('Expected manifest_version 3, got:', manifest.manifest_version);
+          process.exit(1);
+        }
+        
+        // Check permissions are valid
+        const validPermissions = ['activeTab', 'clipboardWrite', 'debugger', 'storage', 'downloads', 'tabs', 'webNavigation', 'webRequest'];
+        const invalidPerms = (manifest.permissions || []).filter(p => !validPermissions.includes(p) && !p.startsWith('http'));
+        
+        if (invalidPerms.length > 0) {
+          console.warn('Potentially invalid permissions:', invalidPerms);
+        }
+        
+        console.log('✓ Manifest validation passed');
+        console.log('  Name:', manifest.name);
+        console.log('  Version:', manifest.version);
+        console.log('  Permissions:', manifest.permissions.join(', '));
+        "
+    
+    - name: Check for required extension files
+      working-directory: chrome-extension
+      run: |
+        FILES="manifest.json popup.html popup.js background.js"
+        MISSING=""
+        for file in $FILES; do
+          if [ ! -f "$file" ]; then
+            MISSING="$MISSING $file"
+          fi
+        done
+        
+        if [ -n "$MISSING" ]; then
+          echo "Warning: Missing files:$MISSING"
+        else
+          echo "✓ All required files present"
+        fi
+    
+    - name: Check extension icons
+      working-directory: chrome-extension
+      run: |
+        ICONS="icon16.png icon48.png icon128.png"
+        MISSING_ICONS=""
+        for icon in $ICONS; do
+          if [ ! -f "$icon" ]; then
+            MISSING_ICONS="$MISSING_ICONS $icon"
+          fi
+        done
+        
+        if [ -n "$MISSING_ICONS" ]; then
+          echo "Warning: Missing icon files:$MISSING_ICONS"
+          echo "Extension will work but icons won't display properly"
+        else
+          echo "✓ All icon files present"
+        fi
+    
+    - name: Package extension
+      working-directory: chrome-extension
+      run: |
+        # Create a zip file for the extension
+        zip -r extension.zip . -x "*.ts" -x "node_modules/*" -x "package*.json" -x "tsconfig.json" -x "*.map"
+        echo "✓ Extension packaged successfully"
+        echo "Package size: $(du -h extension.zip | cut -f1)"
+    
+    - name: Upload extension artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: chrome-extension-${{ github.sha }}
+        path: chrome-extension/extension.zip
+        retention-days: 7
+
+  validate-typescript:
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, 'typescript') || contains(github.event.pull_request.title, 'typescript')
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+    
+    - name: Check TypeScript types
+      working-directory: chrome-extension
+      run: |
+        if [ -f "types/har.d.ts" ]; then
+          echo "✓ TypeScript type definitions found"
+          npx tsc --noEmit types/har.d.ts || true
+        fi
