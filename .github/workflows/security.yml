@@ -146,41 +146,22 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Run OSV Scanner
-      uses: google/osv-scanner-action@v2.2.1
-      with:
-        scan-args: |-
-          --json
-          --output=osv-results.json
-          ./
-      continue-on-error: true
-    
-    - name: Parse OSV results
-      if: always()
       run: |
+        # Install OSV Scanner
+        curl -sSfL https://github.com/google/osv-scanner/releases/download/v1.9.1/osv-scanner_linux_amd64 -o osv-scanner
+        chmod +x osv-scanner
+        
+        # Run the scan
+        ./osv-scanner --json --output=osv-results.json . || true
+        
+        # Display results
         if [ -f "osv-results.json" ]; then
           echo "OSV Scanner Results:"
-          node -e "
-          const fs = require('fs');
-          const results = JSON.parse(fs.readFileSync('osv-results.json', 'utf8'));
-          
-          if (results.results && results.results.length > 0) {
-            results.results.forEach(result => {
-              if (result.packages && result.packages.length > 0) {
-                result.packages.forEach(pkg => {
-                  if (pkg.vulnerabilities && pkg.vulnerabilities.length > 0) {
-                    console.log('Package:', pkg.package.name);
-                    pkg.vulnerabilities.forEach(vuln => {
-                      console.log('  - CVE:', vuln.id, '| Severity:', vuln.database_specific?.severity || 'Unknown');
-                    });
-                  }
-                });
-              }
-            });
-          } else {
-            console.log('✓ No vulnerabilities found');
-          }
-          "
+          cat osv-results.json | jq '.' 2>/dev/null || cat osv-results.json
+        else
+          echo "No OSV results file generated"
         fi
+      continue-on-error: true
 
   secrets-scan:
     name: Secret Detection
