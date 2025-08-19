@@ -72,7 +72,10 @@ jobs:
               },
               "response": {
                 "status": 200,
+                "statusText": "OK",
+                "headers": [],
                 "content": {
+                  "size": 13,
                   "mimeType": "application/json",
                   "text": "{\"test\":true}"
                 }
